@@ -149,8 +149,9 @@ function parseRetryAfter(header) {
 
 async function fetchPosts(token, days) {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const fields = 'id,text,timestamp,like_count,repost_count,reply_count';
   const posts = [];
-  let url = '/me/threads?fields=id,text,timestamp&limit=50';
+  let url = '/me/threads?fields=' + fields + '&limit=50';
 
   while (url) {
     const feed = await makeRequest(url, token);
@@ -164,7 +165,7 @@ async function fetchPosts(token, days) {
     if (page.length < data.length) break;
 
     const cursor = feed.paging?.cursors?.after;
-    url = cursor ? `/me/threads?fields=id,text,timestamp&limit=50&after=${encodeURIComponent(cursor)}` : null;
+    url = cursor ? '/me/threads?fields=' + fields + '&limit=50&after=' + encodeURIComponent(cursor) : null;
   }
 
   return posts;
@@ -179,18 +180,13 @@ async function fetchInsights(token, posts) {
     const results = await Promise.allSettled(
       batch.map(async (post) => {
         const ins = await makeRequest(
-          `/${encodeURIComponent(post.id)}/insights?metric=views,likes,reposts,replies`,
+          '/' + encodeURIComponent(post.id) + '/insights?metric=views',
           token
         );
-        const m = {};
-        (ins.data || []).forEach((x) => {
-          m[x.name] = x.values?.[0]?.value ?? x.value ?? 0;
-        });
-
-        const views = m.views || 0;
-        const likes = m.likes || 0;
-        const reposts = m.reposts || 0;
-        const replies = m.replies || 0;
+        const views = (ins.data || []).find((m) => m.name === 'views')?.values?.[0]?.value ?? 0;
+        const likes = post.like_count || 0;
+        const reposts = post.repost_count || 0;
+        const replies = post.reply_count || 0;
         const engagement = likes + reposts + replies;
         const engagementRate = views > 0 ? parseFloat((engagement / views * 100).toFixed(2)) : 0;
 
