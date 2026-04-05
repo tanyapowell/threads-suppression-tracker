@@ -1,0 +1,105 @@
+{
+  "metadata": {
+    "generatedAt": "2026-04-05T12:00:00.000Z",
+    "days": 30,
+    "threshold": 0.5,
+    "postCount": 6,
+    "suppressedCount": 2
+  },
+  "baseline": {
+    "mean": 4.12,
+    "median": 3.85
+  },
+  "suppressedPosts": [
+    {
+      "id": "17900000000000001",
+      "date": "2026-03-28",
+      "text": "Thread about algorithmic transparency and what platforms",
+      "views": 4200,
+      "likes": 18,
+      "reposts": 2,
+      "replies": 5,
+      "engagement": 25,
+      "engagementRate": 0.6
+    },
+    {
+      "id": "17900000000000004",
+      "date": "2026-03-15",
+      "text": "Here is what we found when we analysed 6 months of eng",
+      "views": 3100,
+      "likes": 12,
+      "reposts": 1,
+      "replies": 3,
+      "engagement": 16,
+      "engagementRate": 0.52
+    }
+  ],
+  "allPosts": [
+    {
+      "id": "17900000000000001",
+      "date": "2026-03-28",
+      "text": "Thread about algorithmic transparency and what platforms",
+      "views": 4200,
+      "likes": 18,
+      "reposts": 2,
+      "replies": 5,
+      "engagement": 25,
+      "engagementRate": 0.6
+    },
+    {
+      "id": "17900000000000002",
+      "date": "2026-03-25",
+      "text": "Really enjoyed this conversation about open source tool",
+      "views": 1800,
+      "likes": 42,
+      "reposts": 8,
+      "replies": 15,
+      "engagement": 65,
+      "engagementRate": 3.61
+    },
+    {
+      "id": "17900000000000003",
+      "date": "2026-03-20",
+      "text": "Quick tip: if your engagement drops suddenly check your",
+      "views": 2400,
+      "likes": 58,
+      "reposts": 12,
+      "replies": 22,
+      "engagement": 92,
+      "engagementRate": 3.83
+    },
+    {
+      "id": "17900000000000004",
+      "date": "2026-03-15",
+      "text": "Here is what we found when we analysed 6 months of eng",
+      "views": 3100,
+      "likes": 12,
+      "reposts": 1,
+      "replies": 3,
+      "engagement": 16,
+      "engagementRate": 0.52
+    },
+    {
+      "id": "17900000000000005",
+      "date": "2026-03-10",
+      "text": "The community response to our suppression findings has",
+      "views": 950,
+      "likes": 38,
+      "reposts": 6,
+      "replies": 11,
+      "engagement": 55,
+      "engagementRate": 5.79
+    },
+    {
+      "id": "17900000000000006",
+      "date": "2026-03-08",
+      "text": "New blog post is live breaking down the methodology beh",
+      "views": 1600,
+      "likes": 45,
+      "reposts": 9,
+      "replies": 14,
+      "engagement": 68,
+      "engagementRate": 4.25
+    }
+  ]
+}
