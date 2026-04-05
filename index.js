@@ -94,6 +94,7 @@ function makeRequest(path, token, retries = 3) {
   return new Promise((resolve, reject) => {
     https.get(url, options, (res) => {
       let body = '';
+      res.on('error', reject);
       res.on('data', (chunk) => (body += chunk));
       res.on('end', async () => {
         // Rate-limited or transient server error — back off and retry
@@ -153,11 +154,14 @@ async function fetchPosts(token, days) {
 
   while (url) {
     const feed = await makeRequest(url, token);
-    const page = (feed.data || []).filter((p) => new Date(p.timestamp) >= since);
+    const data = feed.data || [];
+    if (data.length === 0) break;
+
+    const page = data.filter((p) => new Date(p.timestamp) >= since);
     posts.push(...page);
 
     // Stop paginating if we've gone past the look-back window
-    if (page.length < (feed.data || []).length) break;
+    if (page.length < data.length) break;
 
     const cursor = feed.paging?.cursors?.after;
     url = cursor ? `/me/threads?fields=id,text,timestamp&limit=50&after=${encodeURIComponent(cursor)}` : null;
@@ -167,42 +171,53 @@ async function fetchPosts(token, days) {
 }
 
 async function fetchInsights(token, posts) {
+  const BATCH_SIZE = 5;
   const enriched = [];
 
-  for (const post of posts) {
-    try {
-      const ins = await makeRequest(
-        `/${encodeURIComponent(post.id)}/insights?metric=views,likes,reposts,replies`,
-        token
-      );
-      const m = {};
-      (ins.data || []).forEach((x) => {
-        m[x.name] = x.values?.[0]?.value ?? x.value ?? 0;
-      });
+  for (let i = 0; i < posts.length; i += BATCH_SIZE) {
+    const batch = posts.slice(i, i + BATCH_SIZE);
+    const results = await Promise.allSettled(
+      batch.map(async (post) => {
+        const ins = await makeRequest(
+          `/${encodeURIComponent(post.id)}/insights?metric=views,likes,reposts,replies`,
+          token
+        );
+        const m = {};
+        (ins.data || []).forEach((x) => {
+          m[x.name] = x.values?.[0]?.value ?? x.value ?? 0;
+        });
 
-      const views = m.views || 0;
-      const likes = m.likes || 0;
-      const reposts = m.reposts || 0;
-      const replies = m.replies || 0;
-      const engagement = likes + reposts + replies;
-      const engagementRate = views > 0 ? parseFloat((engagement / views * 100).toFixed(2)) : 0;
+        const views = m.views || 0;
+        const likes = m.likes || 0;
+        const reposts = m.reposts || 0;
+        const replies = m.replies || 0;
+        const engagement = likes + reposts + replies;
+        const engagementRate = views > 0 ? parseFloat((engagement / views * 100).toFixed(2)) : 0;
 
-      enriched.push({
-        id: post.id,
-        date: new Date(post.timestamp).toISOString().split('T')[0],
-        text: post.text || '',
-        views,
-        likes,
-        reposts,
-        replies,
-        engagement,
-        engagementRate,
-      });
+        return {
+          id: post.id,
+          date: new Date(post.timestamp).toISOString().split('T')[0],
+          text: post.text || '',
+          views,
+          likes,
+          reposts,
+          replies,
+          engagement,
+          engagementRate,
+        };
+      })
+    );
 
-      await delay(100); // gentle rate-limit spacing
-    } catch (e) {
-      process.stderr.write(`Warning: failed to get insights for post ${post.id}: ${e.message}\n`);
+    for (let j = 0; j < results.length; j++) {
+      if (results[j].status === 'fulfilled') {
+        enriched.push(results[j].value);
+      } else {
+        process.stderr.write(`Warning: failed to get insights for post ${batch[j].id}: ${results[j].reason.message}\n`);
+      }
     }
+
+    // Pause between batches to respect rate limits
+    if (i + BATCH_SIZE < posts.length) await delay(200);
   }
 
   return enriched.sort((a, b) => b.date.localeCompare(a.date));
