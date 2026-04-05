@@ -160,7 +160,7 @@ async function fetchPosts(token, days) {
     if (page.length < (feed.data || []).length) break;
 
     const cursor = feed.paging?.cursors?.after;
-    url = cursor ? `/me/threads?fields=id,text,timestamp&limit=50&after=${cursor}` : null;
+    url = cursor ? `/me/threads?fields=id,text,timestamp&limit=50&after=${encodeURIComponent(cursor)}` : null;
   }
 
   return posts;
@@ -190,7 +190,7 @@ async function fetchInsights(token, posts) {
       enriched.push({
         id: post.id,
         date: new Date(post.timestamp).toISOString().split('T')[0],
-        text: (post.text || '').slice(0, 60),
+        text: (post.text || '').replace(/\n/g, ' ').slice(0, 60),
         views,
         likes,
         reposts,
@@ -342,16 +342,6 @@ async function main() {
   }
 
   const posts = await fetchPosts(token, opts.days);
-
-  if (posts.length === 0) {
-    if (opts.format === 'json') {
-      console.log(JSON.stringify({ metadata: { postCount: 0 }, baseline: null, suppressedPosts: [], allPosts: [] }, null, 2));
-    } else {
-      console.log(`No posts found in the last ${opts.days} days.`);
-    }
-    return;
-  }
-
   const enriched = await fetchInsights(token, posts);
   const baseline = calculateBaseline(enriched);
   const suppressed = detectSuppression(enriched, baseline, opts.threshold);
