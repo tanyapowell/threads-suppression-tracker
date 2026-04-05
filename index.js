@@ -98,7 +98,7 @@ function makeRequest(path, token, retries = 3) {
       res.on('end', async () => {
         // Rate-limited — back off and retry
         if (res.statusCode === 429 && retries > 0) {
-          const wait = parseInt(res.headers['retry-after'], 10) || Math.pow(2, 3 - retries);
+          const wait = parseRetryAfter(res.headers['retry-after']) || Math.pow(2, 3 - retries);
           await delay(wait * 1000);
           return resolve(makeRequest(path, token, retries - 1));
         }
@@ -132,14 +132,38 @@ function delay(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+function parseRetryAfter(header) {
+  if (!header) return null;
+  const seconds = parseInt(header, 10);
+  if (!isNaN(seconds)) return seconds;
+  // Handle HTTP-date format (e.g. "Fri, 31 Dec 2026 23:59:59 GMT")
+  const date = new Date(header);
+  if (!isNaN(date.getTime())) return Math.max(1, Math.ceil((date.getTime() - Date.now()) / 1000));
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Data fetching
 // ---------------------------------------------------------------------------
 
 async function fetchPosts(token, days) {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-  const feed = await makeRequest('/me/threads?fields=id,text,timestamp&limit=50', token);
-  return (feed.data || []).filter((p) => new Date(p.timestamp) >= since);
+  const posts = [];
+  let url = '/me/threads?fields=id,text,timestamp&limit=50';
+
+  while (url) {
+    const feed = await makeRequest(url, token);
+    const page = (feed.data || []).filter((p) => new Date(p.timestamp) >= since);
+    posts.push(...page);
+
+    // Stop paginating if we've gone past the look-back window
+    if (page.length < (feed.data || []).length) break;
+
+    const cursor = feed.paging?.cursors?.after;
+    url = cursor ? `/me/threads?fields=id,text,timestamp&limit=50&after=${cursor}` : null;
+  }
+
+  return posts;
 }
 
 async function fetchInsights(token, posts) {
@@ -189,12 +213,13 @@ async function fetchInsights(token, posts) {
 // ---------------------------------------------------------------------------
 
 function calculateBaseline(posts) {
-  const rates = posts.map((p) => p.engagementRate).filter((r) => r > 0);
+  const rates = posts.filter((p) => p.views > 0).map((p) => p.engagementRate);
   if (rates.length === 0) return { mean: 0, median: 0 };
 
   const mean = parseFloat((rates.reduce((a, b) => a + b, 0) / rates.length).toFixed(2));
   const sorted = [...rates].sort((a, b) => a - b);
-  const median = parseFloat(sorted[Math.floor(sorted.length / 2)].toFixed(2));
+  const mid = Math.floor(sorted.length / 2);
+  const median = parseFloat((sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2).toFixed(2));
   return { mean, median };
 }
 
