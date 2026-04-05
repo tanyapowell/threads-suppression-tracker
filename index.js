@@ -172,7 +172,7 @@ async function fetchInsights(token, posts) {
   for (const post of posts) {
     try {
       const ins = await makeRequest(
-        `/${post.id}/insights?metric=views,likes,reposts,replies`,
+        `/${encodeURIComponent(post.id)}/insights?metric=views,likes,reposts,replies`,
         token
       );
       const m = {};
@@ -190,7 +190,7 @@ async function fetchInsights(token, posts) {
       enriched.push({
         id: post.id,
         date: new Date(post.timestamp).toISOString().split('T')[0],
-        text: (post.text || '').replace(/\n/g, ' ').slice(0, 60),
+        text: post.text || '',
         views,
         likes,
         reposts,
@@ -234,6 +234,7 @@ function detectSuppression(posts, baseline, threshold) {
 
 function formatTerminal(results) {
   const { posts, baseline, suppressed, opts } = results;
+  const suppressedIds = new Set(suppressed.map((p) => p.id));
   const lines = [];
 
   lines.push('');
@@ -249,12 +250,11 @@ function formatTerminal(results) {
   lines.push('Date       | Views | Eng. | Rate  | Text (preview)');
   lines.push('-----------|-------|------|-------|' + '-'.repeat(40));
 
-  const cutoff = baseline.median * opts.threshold;
   for (const p of posts) {
-    const flag = p.engagementRate < cutoff && p.views >= MIN_VIEWS_FOR_FLAG ? '>>' : '  ';
+    const flag = suppressedIds.has(p.id) ? '>>' : '  ';
     lines.push(
       `${flag} ${p.date} | ${String(p.views).padStart(5)} | ` +
-      `${String(p.engagement).padStart(4)} | ${String(p.engagementRate).padStart(5)}% | ${p.text}`
+      `${String(p.engagement).padStart(4)} | ${String(p.engagementRate).padStart(5)}% | ${p.text.replace(/\n/g, ' ').slice(0, 60)}`
     );
   }
 
@@ -265,13 +265,13 @@ function formatTerminal(results) {
     lines.push('='.repeat(80));
     lines.push(
       `${suppressed.length} post(s) with views >= ${MIN_VIEWS_FOR_FLAG} ` +
-      `but engagement rate below ${cutoff.toFixed(2)}% (${opts.threshold * 100}% of median):`
+      `but engagement rate below ${(baseline.median * opts.threshold).toFixed(2)}% (${opts.threshold * 100}% of median):`
     );
     lines.push('');
 
     for (const p of suppressed) {
       lines.push(`  ${p.date}: ${p.views} views, ${p.engagement} engagement (${p.engagementRate}%)`);
-      lines.push(`  "${p.text}"`);
+      lines.push(`  "${p.text.replace(/\n/g, ' ').slice(0, 60)}..."`);
       lines.push('');
     }
 
