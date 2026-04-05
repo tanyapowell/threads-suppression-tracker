@@ -89,7 +89,7 @@ EXAMPLES
 
 function makeRequest(path, token, retries = 3) {
   const url = `${API_BASE}${path}`;
-  const options = { headers: { 'Authorization': `Bearer ${token}` } };
+  const options = { headers: { 'Authorization': `Bearer ${token}` }, timeout: 15000 };
 
   return new Promise((resolve, reject) => {
     https.get(url, options, (res) => {
@@ -118,7 +118,7 @@ function makeRequest(path, token, retries = 3) {
           reject(new Error(`Failed to parse API response (HTTP ${res.statusCode})`));
         }
       });
-    }).on('error', async (err) => {
+    }).on('timeout', function() { this.destroy(); }).on('error', async (err) => {
       if (retries > 0) {
         await delay(Math.pow(2, 3 - retries) * 1000);
         return resolve(makeRequest(path, token, retries - 1));
@@ -247,14 +247,14 @@ function formatTerminal(results) {
   lines.push('');
   lines.push('POST PERFORMANCE');
   lines.push('='.repeat(80));
-  lines.push('Date       | Views | Eng. | Rate  | Text (preview)');
-  lines.push('-----------|-------|------|-------|' + '-'.repeat(40));
+  lines.push('Date       |   Views |  Eng. | Rate  | Text (preview)');
+  lines.push('-----------|---------|-------|-------|' + '-'.repeat(40));
 
   for (const p of posts) {
     const flag = suppressedIds.has(p.id) ? '>>' : '  ';
     lines.push(
-      `${flag} ${p.date} | ${String(p.views).padStart(5)} | ` +
-      `${String(p.engagement).padStart(4)} | ${String(p.engagementRate).padStart(5)}% | ${p.text.replace(/\n/g, ' ').slice(0, 60)}`
+      `${flag} ${p.date} | ${String(p.views).padStart(7)} | ` +
+      `${String(p.engagement).padStart(5)} | ${String(p.engagementRate).padStart(5)}% | ${p.text.replace(/\n/g, ' ').slice(0, 60)}`
     );
   }
 
