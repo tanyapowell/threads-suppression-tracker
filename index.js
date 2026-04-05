@@ -88,16 +88,16 @@ EXAMPLES
 // ---------------------------------------------------------------------------
 
 function makeRequest(path, token, retries = 3) {
-  const separator = path.includes('?') ? '&' : '?';
-  const url = `${API_BASE}${path}${separator}access_token=${token}`;
+  const url = `${API_BASE}${path}`;
+  const options = { headers: { 'Authorization': `Bearer ${token}` } };
 
   return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
+    https.get(url, options, (res) => {
       let body = '';
       res.on('data', (chunk) => (body += chunk));
       res.on('end', async () => {
-        // Rate-limited — back off and retry
-        if (res.statusCode === 429 && retries > 0) {
+        // Rate-limited or transient server error — back off and retry
+        if ((res.statusCode === 429 || (res.statusCode >= 500 && res.statusCode <= 599)) && retries > 0) {
           const wait = parseRetryAfter(res.headers['retry-after']) || Math.pow(2, 3 - retries);
           await delay(wait * 1000);
           return resolve(makeRequest(path, token, retries - 1));
