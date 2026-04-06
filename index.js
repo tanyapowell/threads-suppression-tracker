@@ -19,7 +19,9 @@ function parseArgs() {
   const args = process.argv.slice(2);
   const opts = { format: 'terminal', days: 30, threshold: 0.5 };
 
-  for (const arg of args) {
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
     if (arg === '--help' || arg === '-h') {
       printUsage();
       process.exit(0);
@@ -28,26 +30,39 @@ function parseArgs() {
       console.log(version);
       process.exit(0);
     }
-    if (arg.startsWith('--format=')) {
-      opts.format = arg.split('=')[1];
+
+    // Support both --key=value and --key value
+    let key, value;
+    if (arg.includes('=')) {
+      [key, value] = [arg.slice(0, arg.indexOf('=')), arg.slice(arg.indexOf('=') + 1)];
+    } else if (arg.startsWith('--') && i + 1 < args.length && !args[i + 1].startsWith('-')) {
+      key = arg;
+      value = args[++i];
+    } else {
+      console.error(`Unknown option: ${arg}\nRun with --help for usage.`);
+      process.exit(1);
+    }
+
+    if (key === '--format') {
+      opts.format = value;
       if (!['terminal', 'json'].includes(opts.format)) {
         console.error(`Invalid format "${opts.format}". Use "terminal" or "json".`);
         process.exit(1);
       }
-    } else if (arg.startsWith('--days=')) {
-      opts.days = parseInt(arg.split('=')[1], 10);
+    } else if (key === '--days') {
+      opts.days = parseInt(value, 10);
       if (isNaN(opts.days) || opts.days < 1) {
         console.error('--days must be a positive integer.');
         process.exit(1);
       }
-    } else if (arg.startsWith('--threshold=')) {
-      opts.threshold = parseFloat(arg.split('=')[1]);
+    } else if (key === '--threshold') {
+      opts.threshold = parseFloat(value);
       if (isNaN(opts.threshold) || opts.threshold <= 0 || opts.threshold >= 1) {
         console.error('--threshold must be a number between 0 and 1 (e.g. 0.5).');
         process.exit(1);
       }
     } else {
-      console.error(`Unknown option: ${arg}\nRun with --help for usage.`);
+      console.error(`Unknown option: ${key}\nRun with --help for usage.`);
       process.exit(1);
     }
   }
@@ -116,7 +131,8 @@ function makeRequest(path, token, retries = 3) {
           }
           resolve(json);
         } catch (e) {
-          reject(new Error(`Failed to parse API response (HTTP ${res.statusCode})`));
+          const snippet = body.slice(0, 200).replace(/\n/g, ' ');
+          reject(new Error(`Failed to parse API response (HTTP ${res.statusCode}): ${snippet}`));
         }
       });
     }).on('timeout', function() { this.destroy(); }).on('error', async (err) => {
@@ -161,8 +177,9 @@ async function fetchPosts(token, days) {
     const page = data.filter((p) => new Date(p.timestamp) >= since);
     posts.push(...page);
 
-    // Stop paginating if we've gone past the look-back window
-    if (page.length < data.length) break;
+    // Stop paginating if any post in this batch is older than the look-back window
+    const hasOlderPost = data.some((p) => new Date(p.timestamp) < since);
+    if (hasOlderPost) break;
 
     const cursor = feed.paging?.cursors?.after;
     url = cursor ? '/me/threads?fields=' + fields + '&limit=50&after=' + encodeURIComponent(cursor) : null;
@@ -172,6 +189,7 @@ async function fetchPosts(token, days) {
 }
 
 async function fetchInsights(token, posts) {
+  // Fetch 5 concurrently with 200ms between batches; retry logic handles 429s
   const BATCH_SIZE = 5;
   const enriched = [];
 
