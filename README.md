@@ -7,6 +7,12 @@ Detect potential algorithmic suppression on Threads by analysing your post engag
 
 > **Disclaimer:** This tool identifies statistical outliers — posts with unusually low engagement relative to your own average. It cannot prove algorithmic suppression. Many factors affect engagement (timing, topic, audience mood). Use the results as an analytical starting point, not a conclusion.
 
+*This tool helps you investigate. It does not replace investigation.*
+
+## Background
+
+This tool was built as part of the [Catching Meta Red-Handed](https://heytanhey.com/notes/series/catching-meta-red-handed) series — an ongoing investigation into algorithmic suppression on Threads. The series documents the methodology, findings, and implications of tracking how Meta's algorithms handle certain content.
+
 ## Quick Start
 
 ```bash
@@ -156,6 +162,10 @@ See [`example-output.json`](example-output.json) for the full JSON structure.
 3. **Calculate** your baseline median engagement rate
 4. **Flag** posts where engagement is disproportionately low relative to views
 5. **Report** results in terminal or JSON format
+
+## Longitudinal Tracking
+
+Each run produces a snapshot of your engagement metrics at that point in time. If you want to track suppression patterns over time, you can pipe the JSON output into a `threads_suppression_snapshots` table (or a simple CSV/JSON-lines file) — one row per run. This makes it possible to graph whether suppression is consistent, episodic, or correlated with specific content.
 
 ## Contributing
 
